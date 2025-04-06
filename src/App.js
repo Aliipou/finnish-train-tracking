@@ -3,12 +3,49 @@ import axios from "axios";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
-// This would typically be in a .env file and not exposed in the code
-// Replace with your own Mapbox token
-// IMPORTANT: In a real application, always use environment variables
+// Dictionary for train type names
+const trainTypeNames = {
+  IC: "InterCity",
+  S: "Pendolino",
+  P: "Passenger",
+  K: "Commuter",
+  L: "Commuter",
+  E: "Express",
+  Y: "Night Train",
+  H: "Cargo",
+  T: "Cargo",
+  M: "Cargo",
+  V: "Cargo",
+};
+
+// Dictionary for common station codes
+const stationCodes = {
+  HKI: "Helsinki",
+  PSL: "Pasila",
+  TPE: "Tampere",
+  TKU: "Turku",
+  OL: "Oulu",
+  OLT: "Oulu tavara",
+  KV: "Kouvola",
+  LH: "Lahti",
+  RI: "Riihimäki",
+  KE: "Kerava",
+  JY: "Jyväskylä",
+  VS: "Vaasa",
+  KOK: "Kokkola",
+  TKL: "Tikkurila",
+  EPO: "Espoo",
+  KKN: "Kirkkonummi",
+  HML: "Hämeenlinna",
+  KTM: "Kontiomäki",
+  KMU: "Kotka Mussalo",
+  TPET: "Tampere tavara",
+};
+
+// Use the Mapbox token from environment variables
 const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
 
-// Digitraffic doesn't require an API key, but we still need to set up proper headers
+// Digitraffic API URL
 const DIGITRAFFIC_API_URL =
   "https://rata.digitraffic.fi/api/v1/train-locations/latest";
 
@@ -19,10 +56,119 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshRate, setRefreshRate] = useState(10); // Default refresh rate in seconds
+  const [stations, setStations] = useState({});
 
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef({});
+
+  // Helper function to convert train type code to readable name
+  const getTrainTypeName = (typeCode) => {
+    return trainTypeNames[typeCode] || typeCode || "Unknown";
+  };
+
+  // Helper function to convert station code to full name
+  const getStationName = (stationCode) => {
+    return stationCode
+      ? stations[stationCode] || stationCodes[stationCode] || stationCode
+      : "Unknown";
+  };
+
+  // Function to get more detailed train type information
+  const getDetailedTrainType = (train) => {
+    if (!train) return "Unknown";
+
+    // If we have detailed train information
+    if (train.details) {
+      // First check if it has a category
+      if (train.details.trainCategory) {
+        const category = train.details.trainCategory;
+
+        // For commuter trains, include the line ID if available
+        if (category === "Commuter" && train.details.commuterLineID) {
+          return `Commuter Line ${train.details.commuterLineID}`;
+        }
+
+        // For long-distance trains, include the train type
+        if (category === "Long-distance" && train.trainType) {
+          return `${getTrainTypeName(train.trainType)} (Long-distance)`;
+        }
+
+        // For cargo trains
+        if (category === "Cargo") {
+          return "Cargo Train";
+        }
+
+        return category;
+      }
+    }
+
+    // If we don't have detailed information, use the basic train type
+    if (train.trainType) {
+      return getTrainTypeName(train.trainType);
+    }
+
+    return "Unknown";
+  };
+
+  // Function to get upcoming stations for a train
+  const getTrainStopInfo = (train) => {
+    if (!train.details || !train.details.timeTableRows) {
+      return [];
+    }
+
+    const now = new Date();
+    const stops = [];
+    const timeTableRows = train.details.timeTableRows;
+
+    // Find all stops where the train stops
+    for (let i = 0; i < timeTableRows.length; i++) {
+      const row = timeTableRows[i];
+      if (row.trainStopping) {
+        // Convert API time to Date object
+        const scheduledTime = new Date(row.scheduledTime);
+
+        // Skip if this is a departure from a station where we already counted the arrival
+        if (
+          row.type === "DEPARTURE" &&
+          stops.length > 0 &&
+          stops[stops.length - 1].station === row.stationShortCode
+        ) {
+          // Just update the departure time for the last stop
+          stops[stops.length - 1].departureTime = scheduledTime;
+          continue;
+        }
+
+        // Add the stop
+        stops.push({
+          station: row.stationShortCode,
+          stationName: getStationName(row.stationShortCode),
+          arrivalTime: row.type === "ARRIVAL" ? scheduledTime : null,
+          departureTime: row.type === "DEPARTURE" ? scheduledTime : null,
+          passed: scheduledTime < now,
+          type: row.type,
+        });
+      }
+    }
+
+    return stops;
+  };
+
+  // Function to create appropriate label for train
+  const createTrainLabel = (train) => {
+    // If train number exists
+    if (train.trainNumber) {
+      // If train type also exists, display both
+      if (train.trainType) {
+        return `${train.trainType}${train.trainNumber}`;
+      }
+      // If only number exists
+      return `#${train.trainNumber}`;
+    }
+
+    // If no identification information is available
+    return "Train";
+  };
 
   // Initialize map when component mounts
   useEffect(() => {
@@ -44,6 +190,34 @@ function App() {
 
     // Cleanup on unmount
     return () => map.remove();
+  }, []);
+
+  // Fetch station data on initial load
+  useEffect(() => {
+    const fetchStations = async () => {
+      try {
+        const response = await axios.get(
+          "https://rata.digitraffic.fi/api/v1/metadata/stations",
+          {
+            headers: {
+              Accept: "application/json",
+            },
+          }
+        );
+
+        // Convert station array to object with station code as key
+        const stationMap = {};
+        response.data.forEach((station) => {
+          stationMap[station.stationShortCode] = station.stationName;
+        });
+
+        setStations(stationMap);
+      } catch (err) {
+        console.error("Failed to fetch station data:", err);
+      }
+    };
+
+    fetchStations();
   }, []);
 
   // Function to fetch train locations
@@ -95,10 +269,10 @@ function App() {
 
     // Remove old markers that are no longer in the data
     const currentTrainIds = new Set(
-      trainData.map((train) => train.trainNumber.toString())
+      trainData.map((train) => (train.trainNumber || "").toString())
     );
     Object.keys(markersRef.current).forEach((trainId) => {
-      if (!currentTrainIds.has(trainId)) {
+      if (!currentTrainIds.has(trainId) && trainId !== "unknown") {
         markersRef.current[trainId].remove();
         delete markersRef.current[trainId];
       }
@@ -106,17 +280,20 @@ function App() {
 
     // Add or update markers
     for (const train of trainData) {
-      const id = train.trainNumber.toString();
+      // If train has no location, skip it
       const { location } = train;
-
-      // Skip if no location data
       if (!location || !location.coordinates) continue;
 
       // GeoJSON format is [longitude, latitude]
       const [longitude, latitude] = location.coordinates;
 
-      // Train type and number for the label
-      const label = `${train.trainType}${train.trainNumber}`;
+      // Train ID for tracking the marker
+      const id = train.trainNumber
+        ? train.trainNumber.toString()
+        : "unknown-" + Math.random().toString(36).substr(2, 9);
+
+      // Create appropriate label for the train
+      const label = createTrainLabel(train);
 
       // If marker already exists, update its position
       if (markersRef.current[id]) {
@@ -150,9 +327,18 @@ function App() {
 
         // Add click handler to show train details
         marker.getElement().addEventListener("click", async () => {
-          // Get detailed train info
-          const trainInfo = await fetchTrainInfo(train.trainNumber);
-          setSelectedTrain({ ...train, details: trainInfo });
+          if (!train.trainNumber) {
+            // If train number is not available, just show location info
+            setSelectedTrain({
+              ...train,
+              details: null,
+              trainType: train.trainType || "Unknown",
+            });
+          } else {
+            // Get detailed train info
+            const trainInfo = await fetchTrainInfo(train.trainNumber);
+            setSelectedTrain({ ...train, details: trainInfo });
+          }
         });
 
         markersRef.current[id] = marker;
@@ -230,12 +416,15 @@ function App() {
             ×
           </button>
           <h2>
-            Train {selectedTrain.trainType}
-            {selectedTrain.trainNumber}
+            Train {selectedTrain.trainType || ""}
+            {selectedTrain.trainNumber || ""}
           </h2>
           <div className="train-details">
             <p>
-              <strong>Speed:</strong> {selectedTrain.speed} km/h
+              <strong>Train Type:</strong> {getDetailedTrainType(selectedTrain)}
+            </p>
+            <p>
+              <strong>Speed:</strong> {selectedTrain.speed || 0} km/h
             </p>
             <p>
               <strong>Location:</strong>{" "}
@@ -250,22 +439,25 @@ function App() {
               <>
                 <p>
                   <strong>Origin:</strong>{" "}
-                  {selectedTrain.details.timeTableRows?.[0]?.stationShortCode ||
-                    "N/A"}
+                  {getStationName(
+                    selectedTrain.details.timeTableRows?.[0]?.stationShortCode
+                  )}
                 </p>
                 <p>
                   <strong>Destination:</strong>{" "}
-                  {selectedTrain.details.timeTableRows?.[
-                    selectedTrain.details.timeTableRows.length - 1
-                  ]?.stationShortCode || "N/A"}
+                  {getStationName(
+                    selectedTrain.details.timeTableRows?.[
+                      selectedTrain.details.timeTableRows.length - 1
+                    ]?.stationShortCode
+                  )}
                 </p>
                 <p>
                   <strong>Category:</strong>{" "}
-                  {selectedTrain.details.trainCategory || "Unknown"}
-                </p>
-                <p>
-                  <strong>Train Type:</strong>{" "}
-                  {selectedTrain.details.trainType || "Unknown"}
+                  {selectedTrain.details.trainCategory === "Long-distance"
+                    ? "Long-distance"
+                    : selectedTrain.details.trainCategory === "Commuter"
+                    ? "Commuter"
+                    : selectedTrain.details.trainCategory || "Unknown"}
                 </p>
                 {selectedTrain.details.commuterLineID && (
                   <p>
@@ -273,6 +465,40 @@ function App() {
                     {selectedTrain.details.commuterLineID}
                   </p>
                 )}
+
+                {/* Add the stops information */}
+                <div className="train-stops">
+                  <h3>Stops:</h3>
+                  {getTrainStopInfo(selectedTrain).length > 0 ? (
+                    <ul className="stops-list">
+                      {getTrainStopInfo(selectedTrain).map((stop, index) => (
+                        <li
+                          key={index}
+                          className={
+                            stop.passed ? "passed-stop" : "upcoming-stop"
+                          }
+                        >
+                          <strong>{stop.stationName}</strong>
+                          <div>
+                            {stop.arrivalTime && (
+                              <span>
+                                Arrival: {stop.arrivalTime.toLocaleTimeString()}
+                              </span>
+                            )}
+                            {stop.departureTime && (
+                              <span>
+                                Departure:{" "}
+                                {stop.departureTime.toLocaleTimeString()}
+                              </span>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>No stop information available</p>
+                  )}
+                </div>
               </>
             )}
           </div>

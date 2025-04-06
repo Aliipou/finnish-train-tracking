@@ -1,38 +1,232 @@
-.App {
-  text-align: center;
+/* App.css for Finnish Train Tracker */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+body {
+  font-family: "Roboto", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1.6;
+  color: #333;
+  background-color: #f5f5f5;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
+.train-tracker-container {
   display: flex;
   flex-direction: column;
+  height: 100vh;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 16px;
+  background-color: white;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
+  padding: 10px 0;
+  border-bottom: 1px solid #ddd;
+  margin-bottom: 16px;
+}
+
+.app-header h1 {
+  color: #16508c;
+  font-size: 1.8rem;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.controls label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
+select,
+button {
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  background-color: white;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+button {
+  background-color: #16508c;
   color: white;
+  border: none;
+  transition: background-color 0.2s;
 }
 
-.App-link {
-  color: #61dafb;
+button:hover {
+  background-color: #0d3b66;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
+button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.error-message {
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 10px;
+  margin-bottom: 16px;
+  border-radius: 4px;
+  border: 1px solid #f5c6cb;
+}
+
+.map-container {
+  flex-grow: 1;
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  min-height: 500px;
+}
+
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: bold;
+  font-size: 1.2rem;
+  z-index: 1000;
+}
+
+.train-marker {
+  font-size: 12px;
+  font-weight: bold;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background-color: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  border: 2px solid #333;
+  white-space: nowrap;
+}
+
+.train-marker:hover {
+  transform: scale(1.1);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+}
+
+/* Different colored markers for different train types */
+.intercity-train {
+  background-color: #007bff;
+  color: white;
+  border-color: #0056b3;
+}
+
+.passenger-train {
+  background-color: #28a745;
+  color: white;
+  border-color: #1e7e34;
+}
+
+.commuter-train {
+  background-color: #fd7e14;
+  color: white;
+  border-color: #d76407;
+}
+
+.cargo-train {
+  background-color: #6c757d;
+  color: white;
+  border-color: #545b62;
+}
+
+.train-info-panel {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 300px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+  padding: 16px;
+  z-index: 1001;
+}
+
+.close-button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #333;
+}
+
+.close-button:hover {
+  color: #dc3545;
+}
+
+.train-info-panel h2 {
+  margin-bottom: 12px;
+  color: #16508c;
+  font-size: 1.4rem;
+}
+
+.train-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.app-footer {
+  margin-top: 16px;
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-top: 1px solid #ddd;
+  font-size: 14px;
+  color: #666;
+}
+
+.app-footer a {
+  color: #16508c;
+  text-decoration: none;
+}
+
+.app-footer a:hover {
+  text-decoration: underline;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .app-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
   }
-  to {
-    transform: rotate(360deg);
+
+  .controls {
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .train-info-panel {
+    width: calc(100% - 40px);
   }
 }

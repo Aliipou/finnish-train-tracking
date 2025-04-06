@@ -29,6 +29,21 @@ body {
   z-index: 100;
 }
 
+.header-main {
+  display: flex;
+  align-items: center;
+}
+
+.current-time {
+  margin-left: 20px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #16508c;
+  background-color: #f0f0f0;
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+
 .app-header h1 {
   color: #16508c;
   font-size: 1.8rem;
@@ -250,8 +265,8 @@ button:disabled {
 }
 
 .stops-list li {
-  padding: 8px;
-  margin-bottom: 4px;
+  padding: 10px;
+  margin-bottom: 8px;
   border-left: 3px solid #ccc;
   background-color: #f9f9f9;
 }
@@ -263,6 +278,25 @@ button:disabled {
 
 .upcoming-stop {
   border-left-color: #28a745 !important;
+}
+
+.station-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.station-text {
+  flex: 1;
+}
+
+.station-image {
+  width: 80px;
+  height: 80px;
+  border-radius: 4px;
+  margin-left: 10px;
+  object-fit: cover;
+  border: 1px solid #ddd;
 }
 
 .stops-list li strong {

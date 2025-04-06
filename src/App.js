@@ -57,6 +57,7 @@ function App() {
   const [error, setError] = useState(null);
   const [refreshRate, setRefreshRate] = useState(10); // Default refresh rate in seconds
   const [stations, setStations] = useState({});
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
@@ -72,6 +73,16 @@ function App() {
     return stationCode
       ? stations[stationCode] || stationCodes[stationCode] || stationCode
       : "Unknown";
+  };
+
+  // Function to get station map image
+  const getStationMapImage = (stationCode) => {
+    const stationName = getStationName(stationCode);
+    return `https://staticmap.openstreetmap.de/staticmap.php?center=${encodeURIComponent(
+      stationName + ", Finland"
+    )}&zoom=15&size=150x150&markers=${encodeURIComponent(
+      stationName + ", Finland"
+    )},ol-marker-blue`;
   };
 
   // Function to get more detailed train type information
@@ -190,6 +201,15 @@ function App() {
 
     // Cleanup on unmount
     return () => map.remove();
+  }, []);
+
+  // Update current time every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
   }, []);
 
   // Fetch station data on initial load
@@ -381,7 +401,10 @@ function App() {
   return (
     <div className="train-tracker-container">
       <header className="app-header">
-        <h1>Finnish Train Tracker</h1>
+        <div className="header-main">
+          <h1>Finnish Train Tracker</h1>
+          <div className="current-time">{currentTime.toLocaleTimeString()}</div>
+        </div>
         <div className="controls">
           <label htmlFor="refresh-rate">
             Refresh every:
@@ -466,7 +489,7 @@ function App() {
                   </p>
                 )}
 
-                {/* Add the stops information */}
+                {/* Add the stops information with images */}
                 <div className="train-stops">
                   <h3>Stops:</h3>
                   {getTrainStopInfo(selectedTrain).length > 0 ? (
@@ -478,19 +501,33 @@ function App() {
                             stop.passed ? "passed-stop" : "upcoming-stop"
                           }
                         >
-                          <strong>{stop.stationName}</strong>
-                          <div>
-                            {stop.arrivalTime && (
-                              <span>
-                                Arrival: {stop.arrivalTime.toLocaleTimeString()}
-                              </span>
-                            )}
-                            {stop.departureTime && (
-                              <span>
-                                Departure:{" "}
-                                {stop.departureTime.toLocaleTimeString()}
-                              </span>
-                            )}
+                          <div className="station-info">
+                            <div className="station-text">
+                              <strong>{stop.stationName}</strong>
+                              <div>
+                                {stop.arrivalTime && (
+                                  <span>
+                                    Arrival:{" "}
+                                    {stop.arrivalTime.toLocaleTimeString()}
+                                  </span>
+                                )}
+                                {stop.departureTime && (
+                                  <span>
+                                    Departure:{" "}
+                                    {stop.departureTime.toLocaleTimeString()}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <img
+                              src={getStationMapImage(stop.station)}
+                              alt={stop.stationName}
+                              className="station-image"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.style.display = "none";
+                              }}
+                            />
                           </div>
                         </li>
                       ))}

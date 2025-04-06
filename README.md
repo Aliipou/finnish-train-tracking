@@ -201,4 +201,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-Created by [Your Name] for the RDI Assistant position at Centria's Chemistry and Bioeconomy team.
+Created by Ali Pourrahim for the RDI Assistant position at Centria's Chemistry and Bioeconomy team.
